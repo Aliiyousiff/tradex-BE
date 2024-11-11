@@ -35,7 +35,7 @@ This is the backend of the StockExchange project, an online platform where users
 
 1. Clone the repository to your directory using the command:
    ```bash
-   git clone https://github.com/IsaAlEid/StockExchange
+   git clone https://github.com/Aliiyousiff/tradex-BE
 
 * Install dependencies:
   ```bash
