@@ -1,24 +1,32 @@
 // routes/tradeRoutes.js
+
 const express = require('express');
-const axios = require('axios');
 const router = express.Router();
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-
-// Helper function to get market price (example using an API)
-const getMarketPrice = async (symbol) => {
-  const response = await axios.get(`https://api.example.com/market/${symbol}`);  // Replace with real API
-  return response.data.price;
-};
+const { getCryptoPrice, getStockPrice } = require('../services/apiService');
+const authMiddleware = require('../middleware');
 
 // Buy asset
-router.post('/:userId/buy', async (req, res) => {
-  const { symbol, amount } = req.body;
+router.post('/:userId/buy', authMiddleware, async (req, res) => {
+  const { symbol, amount, assetType } = req.body; // Include assetType in the request
   try {
-    const price = await getMarketPrice(symbol);
+    let price;
+
+    // Determine which function to use based on asset type
+    if (assetType === 'crypto') {
+      price = await getCryptoPrice(symbol);
+    } else if (assetType === 'stock') {
+      price = await getStockPrice(symbol);
+    } else {
+      return res.status(400).send('Invalid asset type');
+    }
+
     const totalCost = price * amount;
 
     const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).send('User not found');
+
     if (user.wallet < totalCost) return res.status(400).send('Insufficient funds');
 
     user.wallet -= totalCost;
@@ -29,7 +37,8 @@ router.post('/:userId/buy', async (req, res) => {
       type: 'buy',
       symbol,
       amount,
-      price
+      price,
+      assetType,
     });
 
     await transaction.save();
@@ -43,14 +52,24 @@ router.post('/:userId/buy', async (req, res) => {
 });
 
 // Sell asset
-router.post('/:userId/sell', async (req, res) => {
-  const { symbol, amount } = req.body;
+router.post('/:userId/sell', authMiddleware, async (req, res) => {
+  const { symbol, amount, assetType } = req.body;
   try {
-    const price = await getMarketPrice(symbol);
-    const user = await User.findById(req.params.userId);
+    let price;
 
-    // Assuming user has enough quantity of the asset (handle asset quantities separately if needed)
+    if (assetType === 'crypto') {
+      price = await getCryptoPrice(symbol);
+    } else if (assetType === 'stock') {
+      price = await getStockPrice(symbol);
+    } else {
+      return res.status(400).send('Invalid asset type');
+    }
+
     const totalProfit = price * amount;
+
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).send('User not found');
+
     user.wallet += totalProfit;
     await user.save();
 
@@ -59,7 +78,8 @@ router.post('/:userId/sell', async (req, res) => {
       type: 'sell',
       symbol,
       amount,
-      price
+      price,
+      assetType,
     });
 
     await transaction.save();
@@ -67,19 +87,6 @@ router.post('/:userId/sell', async (req, res) => {
     await user.save();
 
     res.json({ message: 'Transaction successful', transaction });
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-
-// Get transaction history
-router.get('/:userId/transactions', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId).populate('transactions');
-    if (!user) return res.status(404).send('User not found');
-
-    const transactions = await Transaction.find({ user: user._id }).sort({ date: -1 });
-    res.json(transactions);
   } catch (err) {
     res.status(500).send(err.message);
   }
