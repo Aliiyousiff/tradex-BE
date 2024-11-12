@@ -18,14 +18,13 @@ mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology
   .catch(err => console.log('Error connecting to MongoDB:', err));
 
   // Routes
-const authRoutes = require('./routes/auth');
+const auth = require('./routes/auth');
 const userRoutes = require('./routes/userRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
 
 app.use(cors());
 app.use(express.json());
-
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', auth);
 app.use('/api/users', userRoutes);
 app.use('/api/trades', tradeRoutes);
 
