@@ -1,65 +1,23 @@
-const bcrypt = require('bcrypt')
-const jwt = require('jsonwebtoken')
-require('dotenv').config()
+// middleware/index.js
+const jwt = require('jsonwebtoken');
 
-const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS)
-const APP_SECRET = process.env.APP_SECRET
+const authMiddleware = (req, res, next) => {
+  const token = req.header('x-auth-token'); // Get token from header
 
-// Hash the password
-const hashPassword = async (password) => {
-  let hash = await bcrypt.hash(password, SALT_ROUNDS)
-  return hash
-}
-
-// Compare the password
-const comparePassword = async (storedPassword, password) => {
-  let match = await bcrypt.compare(password, storedPassword)
-  return match
-}
-
-// Create JWT Token
-const createToken = (payload) => {
-  let token = jwt.sign(payload, APP_SECRET, { expiresIn: '1d' }) // Expire token in 1 day
-  return token
-}
-
-// Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
-  const { token } = res.locals
-  try {
-    let payload = jwt.verify(token, APP_SECRET)
-    if (payload) {
-      res.locals.payload = payload
-      req.user = payload // Attach the user to the request
-      return next()
-    }
-    res.status(401).send({ status: 'Error', msg: 'Unauthorized' })
-  } catch (error) {
-    console.log(error)
-    res.status(401).send({ status: 'Error', msg: 'Invalid Token' })
+  if (!token) {
+    return res.status(401).json({ message: 'No token, authorization denied' });
   }
-}
 
-// Strip token from Authorization header
-const stripToken = (req, res, next) => {
   try {
-    const token = req.headers['authorization'].split(' ')[1]
-    // console.log('token ::' + token)
-    if (token) {
-      res.locals.token = token
-      return next()
-    }
-    res.status(401).send({ status: 'Error', msg: 'Unauthorized' })
-  } catch (error) {
-    console.log(error)
-    res.status(401).send({ status: 'Error', msg: 'Token Missing or Invalid' })
+    const decoded = jwt.verify(
+      token,
+      process.env.APP_SECRET || 'your_jwt_secret_key' // Use APP_SECRET from .env
+    );
+    req.user = decoded; // Attach decoded token to request object
+    next(); // Proceed to next middleware or route handler
+  } catch (err) {
+    res.status(401).json({ message: 'Token is not valid' });
   }
-}
+};
 
-module.exports = {
-  stripToken,
-  verifyToken,
-  createToken,
-  comparePassword,
-  hashPassword
-}
+module.exports = authMiddleware;
