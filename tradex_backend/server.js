@@ -1,48 +1,49 @@
-require('dotenv').config(); 
+require("dotenv").config();
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dialogflow = require('dialogflow'); // Import Dialogflow SDK
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const dialogflow = require("dialogflow");
+
+const { stripToken, verifyToken } = require("./middleware");
 
 const app = express();
-
-// Middleware
-app.use(express.json()); 
-app.use(cors()); 
+const PORT = process.env.PORT || 4000;
+const DB_URI = process.env.DB_URI;
 
 // Log the DB_URI to verify it is correctly loaded
-console.log("MongoDB URI:", process.env.DB_URI); // Check if the URI is loaded correctly
+console.log("MongoDB URI:", DB_URI);
 
-// MongoDB connection with error handling
-mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.log('Error connecting to MongoDB:', err));
+// MongoDB connection
+mongoose
+  .connect(DB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log("Error connecting to MongoDB:", err));
 
-  // Routes
-const auth = require('./routes/auth');
-const userRoutes = require('./routes/userRoutes');
-const tradeRoutes = require('./routes/tradeRoutes');
-
-
-// Define routes
-app.use(cors());
+// Middleware
 app.use(express.json());
-app.use('/api/auth', auth);
-app.use('/api/users', userRoutes);
-app.use('/api/trades', tradeRoutes);
+app.use(cors({ origin: "http://localhost:5173" }));
 
+// Routes
+const auth = require("./routes/auth");
+const userRoutes = require("./routes/userRoutes");
+const tradeRoutes = require("./routes/tradeRoutes");
+const profileRoutes = require("./routes/Profile");
 
+app.use("/api/auth", auth);
+app.use("/api/users", stripToken, verifyToken, userRoutes);
+app.use("/api/trades", stripToken, verifyToken, tradeRoutes);
+app.use("/api/profile", stripToken, verifyToken, profileRoutes);
 
 // Setup the Dialogflow client
 const sessionClient = new dialogflow.SessionsClient({
-  keyFilename: process.env.DIALOGFLOW_KEY_PATH // Path to your Dialogflow service account key
+  keyFilename: process.env.DIALOGFLOW_KEY_PATH,
 });
 
-// Route to handle Dialogflow webhook requests
-app.post('/api/chatbot', async (req, res) => {
+// Dialogflow webhook route
+app.post("/api/chatbot", async (req, res) => {
   const sessionPath = sessionClient.projectAgentSessionPath(
-    process.env.DIALOGFLOW_PROJECT_ID, 
+    process.env.DIALOGFLOW_PROJECT_ID,
     req.body.sessionId
   );
 
@@ -51,28 +52,22 @@ app.post('/api/chatbot', async (req, res) => {
     queryInput: {
       text: {
         text: req.body.query,
-        languageCode: 'en',
+        languageCode: "en",
       },
     },
   };
 
   try {
-    // Send request to Dialogflow
     const responses = await sessionClient.detectIntent(request);
     const result = responses[0].queryResult;
-
-    // Send the response back to Dialogflow (this will be sent back to the client)
-    res.json({
-      fulfillmentText: result.fulfillmentText,  // Dialogflow's response
-    });
+    res.json({ fulfillmentText: result.fulfillmentText });
   } catch (err) {
-    console.error('Dialogflow request failed:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Dialogflow request failed:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
-// Server setup
-const port = process.env.PORT || 4000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

@@ -3,12 +3,13 @@ const bcrypt = require('bcrypt');
 
 // Define the User schema
 const userSchema = new mongoose.Schema({
-  username:   { type: String, required: true, unique: true }, 
+  username:   { type: String, required: true, unique: true },
   email:      { type: String, required: true, unique: true },
   password:   { type: String, required: true },
   wallet:     { type: Number, default: 10000 },
   transactions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }],
-  favorites:  [{ type: String }],
+  favorites:  [{ type: mongoose.Schema.Types.ObjectId, ref: 'Favorite' }], // Updated to reference 'Favorite'
+  history:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'History' }],   // Added 'history' field with reference
   createdAt:  { type: Date, default: Date.now },
 });
 
