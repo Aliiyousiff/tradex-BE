@@ -1,22 +1,29 @@
 const jwt = require('jsonwebtoken');
+const { isTokenBlacklisted } = require('../routes/auth');
 
-const authMiddleware = (req, res, next) => {
-  const token = req.header('x-auth-token'); // Get token from header
-
+const stripToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
-    return res.status(401).json({ message: 'No token, authorization denied' });
+    return res.status(401).json({ message: 'No token provided' });
   }
+  req.token = token;
+  next();
+};
 
+const verifyToken = (req, res, next) => {
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.APP_SECRET || 'your_jwt_secret_key'  // Use APP_SECRET from .env
-    );
-    req.user = decoded;  // Attach decoded token to the request object
-    next();  // Proceed to next middleware or route handler
+    const token = req.token;
+    if (isTokenBlacklisted(token)) {
+      return res.status(401).json({ message: 'Token is blacklisted' });
+    }
+
+    const decoded = jwt.verify(token, process.env.APP_SECRET || 'your_jwt_secret_key');
+    req.user = decoded;
+    next();
   } catch (err) {
-    res.status(401).json({ message: 'Token is not valid' });
+    console.error('Token verification failed:', err.message);
+    return res.status(401).json({ message: 'Token is invalid' });
   }
 };
 
-module.exports = authMiddleware;
+module.exports = { stripToken, verifyToken };

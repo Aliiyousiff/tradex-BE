@@ -1,24 +1,29 @@
-const User = require('../models/User')
+// controllers/Profile.js
+const User = require('../models/User');
 
 const getProfile = async (req, res) => {
   try {
-    const userId = req.user.id // Extract user ID from middleware
-    //console.log('Fetching profile for user ID:', userId)
+    const userId = req.user.userId;
+    console.log('Fetching profile for user ID:', userId);
 
-    // Populate the favorites and addedPodcasts fields
-    const user = await User.findById(userId)
-      .populate('favorites')
-      .populate('history')
+    // Populate the 'favorites' field with the Favorite model data
+    const user = await User.findById(userId).populate('favorites');
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' })
+      console.error('User not found for ID:', userId);
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    res.status(200).json(user)
+    res.status(200).json({
+      username: user.username,
+      email: user.email,
+      wallet: user.wallet,
+      favorites: user.favorites,
+    });
   } catch (error) {
-    console.error('Error in getProfile:', error)
-    res.status(500).json({ message: 'Server error', error })
+    console.error('Error in getProfile:', error.message);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
-}
+};
 
-module.exports = { getProfile }
+module.exports = { getProfile };
