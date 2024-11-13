@@ -8,7 +8,6 @@ const getProfile = async (req, res) => {
     // Populate the favorites and addedPodcasts fields
     const user = await User.findById(userId)
       .populate('favorites')
-      .populate('addedPodcasts')
       .populate('history')
 
     if (!user) {

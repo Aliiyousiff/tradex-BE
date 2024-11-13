@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
@@ -20,8 +20,10 @@ router.post('/register', async (req, res) => {
     }
 
     // Hash the password
-    const saltRounds = parseInt(process.env.SALT_ROUNDS) || 10;
+    const saltRounds = parseInt(process.env.SALT_ROUNDS) || 12;
+    
     const salt = await bcrypt.genSalt(saltRounds);
+   
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create a new user with the hashed password
@@ -30,22 +32,36 @@ router.post('/register', async (req, res) => {
       email,
       password: hashedPassword,
     });
-    
-// Login Route (Generate JWT Token)
-router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
 
+    // Save the user to the database
+    await newUser.save();
+
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (err) {
+    console.error('Error during registration:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Login Route (Login with Username and Password)
+router.post('/login', async (req, res) => {
+  const { username, password } = req.body; // Now using 'username' instead of 'identifier'
   try {
+    // Find the user by username
     const user = await User.findOne({ username });
+    
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-
+    console.log(user)
+    // Compare password with hashed password stored in database
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Create a JWT token
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       jwtSecret,
@@ -56,13 +72,9 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token: token,
       userId: user._id,
-
-    // Save the user to the database
-    await newUser.save();
-
-    res.status(201).json({ message: 'User registered successfully' });
+    });
   } catch (err) {
-    console.error('Error during registration:', err.message);
+    console.error('Error during login:', err.message);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
