@@ -2,15 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const { getProfile } = require('../controllers/Profile');
-const middleware = require('../middleware/index');
+const { stripToken, verifyToken } = require('../middleware');
 
-// Test route to verify Profile.js is loaded correctly
-router.get('/test', (req, res) => {
-  res.send('Profile test route is working!');
-});
-
-// Route to get a user's profile
-// Temporarily removing middleware for testing
-router.get('/details', getProfile);
+// Route to get user profile with middleware applied
+router.get('/details', stripToken, verifyToken, getProfile);
 
 module.exports = router;

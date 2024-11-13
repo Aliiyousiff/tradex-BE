@@ -11,7 +11,6 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const DB_URI = process.env.DB_URI;
 
-// Log the DB_URI to verify it is correctly loaded
 console.log("MongoDB URI:", DB_URI);
 
 // MongoDB connection
@@ -25,22 +24,21 @@ app.use(express.json());
 app.use(cors({ origin: "http://localhost:5173" }));
 
 // Routes
-const auth = require("./routes/auth");
+const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/userRoutes");
 const tradeRoutes = require("./routes/tradeRoutes");
 const profileRoutes = require("./routes/Profile");
 
-app.use("/api/auth", auth);
+app.use("/api/auth", authRoutes);
 app.use("/api/users", stripToken, verifyToken, userRoutes);
-app.use("/api/trades", stripToken, verifyToken, tradeRoutes);
+app.use("/api/trade", stripToken, verifyToken, tradeRoutes);
 app.use("/api/profile", stripToken, verifyToken, profileRoutes);
 
-// Setup the Dialogflow client
+// Dialogflow setup
 const sessionClient = new dialogflow.SessionsClient({
   keyFilename: process.env.DIALOGFLOW_KEY_PATH,
 });
 
-// Dialogflow webhook route
 app.post("/api/chatbot", async (req, res) => {
   const sessionPath = sessionClient.projectAgentSessionPath(
     process.env.DIALOGFLOW_PROJECT_ID,

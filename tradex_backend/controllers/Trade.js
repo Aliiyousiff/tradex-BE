@@ -1,22 +1,21 @@
-// controllers/Trade.js
 const User = require('../models/User');
-const Trade = require('../models/Trade'); // Assuming you have a Trade model
+const Trade = require('../models/Trade');
 const mongoose = require('mongoose');
 
-// Create a new trade
+// Create a new trade (Buy or Sell)
 const createTrade = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
     const { symbol, quantity, price } = req.body;
 
     // Validate input
-    if (!symbol || !quantity || !price) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (!userId || !symbol || !quantity || !price) {
+      return res.status(400).json({ message: 'Missing required fields: userId, symbol, quantity, or price' });
     }
 
     // Create a new trade document
     const trade = new Trade({
-      userId: mongoose.Types.ObjectId(userId),
+      userId: new mongoose.Types.ObjectId(userId),
       symbol,
       quantity,
       price,
@@ -27,7 +26,7 @@ const createTrade = async (req, res) => {
     // Save the trade
     await trade.save();
 
-    // Update the user's transaction history (optional)
+    // Update the user's transaction history
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -46,9 +45,12 @@ const createTrade = async (req, res) => {
 // Get all trades for the authenticated user
 const getTrades = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
 
-    // Fetch all trades for the user
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is missing' });
+    }
+
     const trades = await Trade.find({ userId }).sort({ createdAt: -1 });
 
     if (!trades || trades.length === 0) {
@@ -65,17 +67,19 @@ const getTrades = async (req, res) => {
 // Delete a trade by trade ID
 const deleteTrade = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
     const { tradeId } = req.params;
 
-    // Find and delete the trade
+    if (!userId || !tradeId) {
+      return res.status(400).json({ message: 'User ID or Trade ID is missing' });
+    }
+
     const trade = await Trade.findOneAndDelete({ _id: tradeId, userId });
 
     if (!trade) {
       return res.status(404).json({ message: 'Trade not found' });
     }
 
-    // Update user's transaction history
     await User.findByIdAndUpdate(userId, {
       $pull: { transactions: tradeId },
     });
@@ -87,8 +91,68 @@ const deleteTrade = async (req, res) => {
   }
 };
 
+// Add a stock to user's favorites
+const addFavorite = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { symbol } = req.body;
+
+    if (!userId || !symbol) {
+      return res.status(400).json({ message: 'User ID or Symbol is missing' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.favorites.includes(symbol)) {
+      return res.status(400).json({ message: 'Asset already in favorites' });
+    }
+
+    user.favorites.push(symbol);
+    await user.save();
+
+    res.status(200).json({ message: 'Added to favorites', favorites: user.favorites });
+  } catch (error) {
+    console.error('Error adding to favorites:', error.message);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+// Remove a stock from user's favorites
+const removeFavorite = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { symbol } = req.body;
+
+    if (!userId || !symbol) {
+      return res.status(400).json({ message: 'User ID or Symbol is missing' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!user.favorites.includes(symbol)) {
+      return res.status(404).json({ message: 'Asset not found in favorites' });
+    }
+
+    user.favorites = user.favorites.filter((fav) => fav !== symbol);
+    await user.save();
+
+    res.status(200).json({ message: 'Removed from favorites', favorites: user.favorites });
+  } catch (error) {
+    console.error('Error removing from favorites:', error.message);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 module.exports = {
   createTrade,
   getTrades,
   deleteTrade,
+  addFavorite,
+  removeFavorite,
 };
