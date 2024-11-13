@@ -1,14 +1,8 @@
-const express = require('express')
-const { addFavorite } = require('../controllers/favorite')
-const middleware = require('../middleware/index')
+const express = require('express');
+const router = express.Router();
+const favoriteController = require('../controllers/favorite');
 
-const router = express.Router()
+router.post('/add', favoriteController.addToFavorites);
+router.post('/remove', favoriteController.removeFromFavorites);
 
-router.post(
-  '/favorite',
-  middleware.stripToken,
-  middleware.verifyToken,
-  addFavorite
-)
-
-module.exports = router
+module.exports = router;
