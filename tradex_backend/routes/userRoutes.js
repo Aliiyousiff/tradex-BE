@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const authMiddleware = require('../middleware');
+const authMiddleware = require('../middleware'); // Authentication Middleware
 
 // Get user profile (wallet balance and favorites)
 router.get('/:userId', authMiddleware, async (req, res) => {
