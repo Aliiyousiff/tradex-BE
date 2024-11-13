@@ -1,50 +1,40 @@
-const Favorite = require('../models/Favorite')
-const Podcast = require('../models/Podcast')
-const User = require('../models/User')
+const User = require('../models/User');
 
-const addFavorite = async (req, res) => {
-  try {
-    const userId = req.user.id
+// Add to favorites
+exports.addToFavorites = async (req, res) => {
+    const { userId, item } = req.body; // item should contain type ('stock' or 'crypto') and symbol
 
-    // Check if the podcast is already in the user's favorites
-    const existingFavorite = await Favorite.findOne({
-      externalId: req.body.externalId
-    })
-    if (existingFavorite) {
-      console.log('Podcast is already in favorites')
-      return res.status(409).send({ error: 'Podcast is already in favorites' })
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Check if item already exists in favorites to avoid duplicates
+        const isExisting = user.favorites.some(fav => fav.symbol === item.symbol && fav.type === item.type);
+        if (!isExisting) {
+            user.favorites.push(item);
+            await user.save();
+            res.status(200).json({ message: 'Added to favorites successfully!', favorites: user.favorites });
+        } else {
+            res.status(400).json({ message: 'Item already in favorites' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
+};
 
-    // Add the podcast to the user's favorites using the API ID
-    const newFavorite = new Favorite({
-      externalId: req.body.externalId,
-      title: req.body.title,
-      description: req.body.description,
-      thumbnail: req.body.thumbnail,
-      genre_ids: req.body.genre_ids,
-      user: userId
-    })
+// Remove from favorites
+exports.removeFromFavorites = async (req, res) => {
+    const { userId, item } = req.body; // item should contain type ('stock' or 'crypto') and symbol
 
-    const savedFavorite = await newFavorite.save()
-    console.log('Saved favorite:', savedFavorite)
-
-    // Update the user's favorites array by pushing the _id of the Favorite document
-    await User.findByIdAndUpdate(
-      userId,
-      { $push: { favorites: savedFavorite._id } }, // Push the _id of the favorite document
-      { new: true }
-    )
-
-    console.log('Updated user favorites array')
-
-    res.status(201).send(savedFavorite)
-  } catch (error) {
-    console.error('Error adding to favorites:', error.message)
-    res.status(500).send({
-      error: 'Failed to add to favorites',
-      details: error.message
-    })
-  }
-}
-
-module.exports = { addFavorite }
+    try {
+        const user = await User.findByIdAndUpdate(userId, 
+            { $pull: { favorites: { symbol: item.symbol, type: item.type } } },
+            { new: true }
+        );
+        res.status(200).json({ message: 'Removed from favorites successfully!', favorites: user.favorites });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
