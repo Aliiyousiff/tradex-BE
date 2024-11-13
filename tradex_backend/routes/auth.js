@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -7,31 +6,42 @@ const User = require('../models/User');
 
 const jwtSecret = process.env.APP_SECRET || 'your_jwt_secret_key';
 
-// Login Route
+// Register Route (Create User)
+router.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
+
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const newUser = new User({ username, email, password });
+    await newUser.save();
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Login Route (Generate JWT Token)
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  console.log('Login attempt:', username);
-
   try {
-    // Find the user by username
     const user = await User.findOne({ username });
     if (!user) {
-      console.log('User not found:', username);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Compare password with hashed password stored in database
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log('Invalid password for user:', username);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Create a JWT token
     const token = jwt.sign(
       { userId: user._id, username: user.username },
-      jwtSecret, // Use APP_SECRET from .env
+      jwtSecret,
       { expiresIn: '1h' }
     );
 
@@ -41,7 +51,6 @@ router.post('/login', async (req, res) => {
       userId: user._id,
     });
   } catch (err) {
-    console.error('Error in login route:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
